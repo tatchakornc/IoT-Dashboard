@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 IoT Dashboard - แดชบอร์ดควบคุมอุปกรณ์</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="page">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <div class="logo">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+                    <h1>ESP32 Control Dashboard</h1>
+                    <p>แดชบอร์ดควบคุมอุปกรณ์ IoT ของคุณ</p>
+                </div>
+                <div class="login-body">
+                    <form id="loginForm" class="login-form" autocomplete="off">
+                        <div class="form-group">
+                            <label for="username">ชื่อผู้ใช้</label>
+                            <input type="text" id="username" name="username" required autocomplete="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="password">รหัสผ่าน</label>
+                            <input type="password" id="password" name="password" required autocomplete="current-password">
+                        </div>
+                        <button type="submit" class="login-btn" id="loginBtn">
+                            <i class="fas fa-sign-in-alt"></i>
+                            เข้าสู่ระบบ
+                        </button>
+                    </form>
+                    <div style="text-align:center; margin-top:12px;">
+                        <a href="#" id="showRegister" style="color:#667eea;">สมัครสมาชิก</a>
+                    </div>
+                    <p class="login-footer">
+                        © 2025 ESP32 IoT Dashboard
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Page -->
+    <div id="registerPage" class="page hidden">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <div class="logo">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <h1>สมัครสมาชิก</h1>
+                    <p>สร้างบัญชีผู้ใช้ใหม่เพื่อใช้งานแดชบอร์ด</p>
+                </div>
+                <div class="login-body">
+                    <form id="registerForm" class="login-form" autocomplete="off">
+                        <div class="form-group">
+                            <label for="regUsername">ชื่อผู้ใช้</label>
+                            <input type="text" id="regUsername" name="username" required autocomplete="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="regPassword">รหัสผ่าน</label>
+                            <input type="password" id="regPassword" name="password" required autocomplete="new-password">
+                        </div>
+                        <div class="form-group">
+                            <label for="regConfirm">ยืนยันรหัสผ่าน</label>
+                            <input type="password" id="regConfirm" name="confirm" required autocomplete="new-password">
+                        </div>
+                        <button type="submit" class="login-btn" id="registerBtn">
+                            <i class="fas fa-user-plus"></i>
+                            สมัครสมาชิก
+                        </button>
+                    </form>
+                    <div style="text-align:center; margin-top:12px;">
+                        <a href="#" id="showLogin" style="color:#667eea;">เข้าสู่ระบบ</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboardPage" class="page hidden">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-microchip"></i>
+                </div>
+                <h3>ESP32 Dashboard</h3>
+            </div>
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-details">
+                    <span class="user-name" id="userName">ผู้ใช้งาน</span>
+                    <span class="user-status">ออนไลน์</span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" id="navHome">
+                    <i class="fas fa-home"></i>
+                    <span>หน้าหลัก</span>
+                </a>
+                <a href="#" class="nav-item" id="navSettings">
+                    <i class="fas fa-cog"></i>
+                    <span>การตั้งค่า</span>
+                </a>
+                <a href="#" class="nav-item" id="navAddDevice">
+                    <i class="fas fa-plus"></i>
+                    <span>เพิ่มอุปกรณ์</span>
+                </a>
+                <a href="#" class="nav-item" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>ออกจากระบบ</span>
+                </a>
+            </nav>
+        </div>
+        <main class="main-content">
+            <!-- Dashboard Content -->
+            <div id="mainDashboardContent">
+                <header class="header">
+                    <div class="header-left">
+                        <h1>แดชบอร์ดหลัก</h1>
+                        <p>จัดการและควบคุมอุปกรณ์ ESP32 ของคุณ</p>
+                    </div>
+                </header>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-icon online"><i class="fas fa-plug"></i></span>
+                            <span class="stat-value" id="statOnline">0</span>
+                        </div>
+                        <div class="stat-label">อุปกรณ์ออนไลน์</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-icon offline"><i class="fas fa-power-off"></i></span>
+                            <span class="stat-value" id="statOffline">0</span>
+                        </div>
+                        <div class="stat-label">อุปกรณ์ออฟไลน์</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-icon"><i class="fas fa-list"></i></span>
+                            <span class="stat-value" id="statTotal">0</span>
+                        </div>
+                        <div class="stat-label">อุปกรณ์ทั้งหมด</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-icon"><i class="fas fa-user"></i></span>
+                            <span class="stat-value" id="statUser">-</span>
+                        </div>
+                        <div class="stat-label">ผู้ใช้งาน</div>
+                    </div>
+                </div>
+                <div class="devices-section">
+                    <h2>อุปกรณ์ของคุณ</h2>
+                    <div class="devices-grid" id="devicesGrid">
+                        <!-- Device cards will be dynamically generated here -->
+                    </div>
+                </div>
+            </div>
+            <!-- Settings Content -->
+            <div id="settingsContent" class="hidden">
+                <header class="header">
+                    <div class="header-left">
+                        <h1>การตั้งค่า</h1>
+                        <p>เปลี่ยนรหัสผ่านบัญชีผู้ใช้ของคุณ</p>
+                    </div>
+                </header>
+                <div class="settings-section">
+                    <form id="changePasswordForm" class="settings-form" autocomplete="off">
+                        <div class="form-group">
+                            <label for="oldPassword">รหัสผ่านเดิม</label>
+                            <input type="password" id="oldPassword" name="oldPassword" required autocomplete="current-password">
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">รหัสผ่านใหม่</label>
+                            <input type="password" id="newPassword" name="newPassword" required autocomplete="new-password">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmPassword">ยืนยันรหัสผ่านใหม่</label>
+                            <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
+                        </div>
+                        <button type="submit" class="btn btn-primary">เปลี่ยนรหัสผ่าน</button>
+                    </form>
+                </div>
+            </div>
+            <!-- Add Device Content (Full Page) -->
+            <div id="addDeviceContent" class="hidden">
+                <header class="header">
+                    <div class="header-left">
+                        <h1>เพิ่มอุปกรณ์ใหม่</h1>
+                        <p>กรอกข้อมูลอุปกรณ์ที่ต้องการเพิ่ม</p>
+                    </div>
+                </header>
+                <div class="settings-section">
+                    <form id="addDeviceForm" class="settings-form" autocomplete="off">
+                        <div class="form-group">
+                            <label for="deviceSN">SN อุปกรณ์</label>
+                            <input type="text" id="deviceSN" name="deviceSN" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="deviceName">ชื่ออุปกรณ์</label>
+                            <input type="text" id="deviceName" name="deviceName" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">เพิ่มอุปกรณ์</button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>กำลังโหลด...</p>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
