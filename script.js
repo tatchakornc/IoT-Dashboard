@@ -1,10 +1,25 @@
+// Firebase SDK (ต้องมีใน <head> ของ index.html)
+// <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+// <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+// <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+// Firebase config ของคุณ
+const firebaseConfig = {
+  apiKey: "AIzaSyBNPvRVxzxAFPnPK5shSzTtwr6x7UMXg1g",
+  authDomain: "iot-dashboard-86cce.firebaseapp.com",
+  databaseURL: "https://iot-dashboard-86cce-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "iot-dashboard-86cce",
+  storageBucket: "iot-dashboard-86cce.appspot.com",
+  messagingSenderId: "105140968635",
+  appId: "1:105140968635:web:0a97e1a3be0573b45d9d9e",
+  measurementId: "G-JFXB248TED"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
 let currentUser = null;
 let devices = [];
-
-// (สำหรับ dev เท่านั้น) จำลอง user
-if (!localStorage.getItem('currentUser')) {
-    localStorage.setItem('currentUser', JSON.stringify({ username: 'test', token: '123' }));
-}
 
 // Show/hide pages
 function showLogin() {
@@ -21,7 +36,7 @@ function showDashboard() {
     document.getElementById('loginPage').classList.add('hidden');
     document.getElementById('registerPage').classList.add('hidden');
     document.getElementById('dashboardPage').classList.remove('hidden');
-    document.getElementById('userName').textContent = currentUser?.username || 'ผู้ใช้งาน';
+    document.getElementById('userName').textContent = currentUser?.email || 'ผู้ใช้งาน';
     loadDevices();
 }
 
@@ -77,53 +92,40 @@ window.addEventListener('DOMContentLoaded', () => {
         addDeviceForm.onsubmit = handleAddDevice;
     }
 
-    // Auto-login if user exists in localStorage
-    const saved = localStorage.getItem('currentUser');
-    if (saved) {
-        currentUser = JSON.parse(saved);
-        showDashboard();
-        showDashboardPage('mainDashboardContent');
-    } else {
-        showLogin();
-    }
+    // Auth state
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            currentUser = user;
+            showDashboard();
+            showDashboardPage('mainDashboardContent');
+        } else {
+            currentUser = null;
+            showLogin();
+        }
+    });
 });
 
 // Authentication functions
 function handleLogin(e) {
     e.preventDefault();
-    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
 
     showLoading();
-
-    fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            currentUser = data.user;
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    auth.signInWithEmailAndPassword(email, password)
+        .then(() => {
             hideLoading();
             showSuccess('เข้าสู่ระบบสำเร็จ!');
-            showDashboard();
-            showDashboardPage('mainDashboardContent');
-        } else {
+        })
+        .catch(err => {
             hideLoading();
-            showError(data.message || 'เข้าสู่ระบบไม่สำเร็จ');
-        }
-    })
-    .catch(() => {
-        hideLoading();
-        showError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-    });
+            showError(err.message);
+        });
 }
 
 function handleRegister(e) {
     e.preventDefault();
-    const username = document.getElementById('regUsername').value.trim();
+    const email = document.getElementById('regUsername').value.trim();
     const password = document.getElementById('regPassword').value;
     const confirm = document.getElementById('regConfirm').value;
 
@@ -133,49 +135,39 @@ function handleRegister(e) {
     }
 
     showLoading();
-
-    fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
+    auth.createUserWithEmailAndPassword(email, password)
+        .then(() => {
             hideLoading();
             showSuccess('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ');
             showLogin();
-        } else {
+        })
+        .catch(err => {
             hideLoading();
-            showError(data.message || 'สมัครสมาชิกไม่สำเร็จ');
-        }
-    })
-    .catch(() => {
-        hideLoading();
-        showError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-    });
+            showError(err.message);
+        });
 }
 
 function logout() {
-    localStorage.removeItem('currentUser');
-    currentUser = null;
-    devices = [];
+    auth.signOut();
     showSuccess('ออกจากระบบสำเร็จ');
     showLogin();
 }
 
-// Device management functions
+// Device management functions (ใช้ Realtime Database)
 function loadDevices() {
-    fetch('/api/devices', {
-        headers: { 'Authorization': `Bearer ${currentUser?.token || ''}` }
-    })
-    .then(res => res.json())
-    .then(data => {
-        devices = data.devices || [];
+    if (!currentUser) return;
+    const userDevicesRef = db.ref('devices/' + currentUser.uid);
+    userDevicesRef.once('value', snapshot => {
+        devices = [];
+        const data = snapshot.val();
+        if (data) {
+            for (const id in data) {
+                devices.push({ id, ...data[id] });
+            }
+        }
         updateStats();
         renderDevices();
-    })
-    .catch(() => {
+    }, () => {
         devices = [];
         updateStats();
         renderDevices();
@@ -184,31 +176,22 @@ function loadDevices() {
 }
 
 function updateDeviceState(deviceId, control, value) {
-    fetch(`/api/devices/${deviceId}/state`, {
-        method: 'PATCH',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${currentUser?.token || ''}`
-        },
-        body: JSON.stringify({ [control]: value })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
+    if (!currentUser) return;
+    const deviceRef = db.ref(`devices/${currentUser.uid}/${deviceId}/state`);
+    deviceRef.update({ [control]: value })
+        .then(() => {
             loadDevices();
             showSuccess('อัปเดตอุปกรณ์สำเร็จ');
-        } else {
-            showError(data.message || 'อัปเดตอุปกรณ์ไม่สำเร็จ');
-        }
-    })
-    .catch(() => {
-        showError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-    });
+        })
+        .catch(() => {
+            showError('อัปเดตอุปกรณ์ไม่สำเร็จ');
+        });
 }
 
 // เพิ่มอุปกรณ์ (Full Page)
 function handleAddDevice(e) {
     e.preventDefault();
+    if (!currentUser) return;
     const sn = document.getElementById('deviceSN').value.trim();
     const name = document.getElementById('deviceName').value.trim();
     if (!sn || !name) {
@@ -216,29 +199,25 @@ function handleAddDevice(e) {
         return;
     }
     showLoading();
-    fetch('/api/devices', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${currentUser?.token || ''}`
-        },
-        body: JSON.stringify({ sn, name })
+    const userDevicesRef = db.ref('devices/' + currentUser.uid);
+    const newDeviceRef = userDevicesRef.push();
+    newDeviceRef.set({
+        sn,
+        name,
+        online: false,
+        type: 'other',
+        state: {}
     })
-    .then(res => res.json())
-    .then(data => {
+    .then(() => {
         hideLoading();
-        if (data.success) {
-            showSuccess('เพิ่มอุปกรณ์สำเร็จ');
-            document.getElementById('addDeviceForm').reset();
-            showDashboardPage('mainDashboardContent');
-            loadDevices();
-        } else {
-            showError(data.message || 'เพิ่มอุปกรณ์ไม่สำเร็จ');
-        }
+        showSuccess('เพิ่มอุปกรณ์สำเร็จ');
+        document.getElementById('addDeviceForm').reset();
+        showDashboardPage('mainDashboardContent');
+        loadDevices();
     })
     .catch(() => {
         hideLoading();
-        showError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+        showError('เพิ่มอุปกรณ์ไม่สำเร็จ');
     });
 }
 
@@ -306,7 +285,7 @@ function updateStats() {
     document.getElementById('statOnline').textContent = devices.filter(d => d.online).length;
     document.getElementById('statOffline').textContent = devices.filter(d => !d.online).length;
     document.getElementById('statTotal').textContent = devices.length;
-    document.getElementById('statUser').textContent = currentUser?.username || '-';
+    document.getElementById('statUser').textContent = currentUser?.email || '-';
 }
 
 // Loading & Toast
