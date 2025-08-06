@@ -199,25 +199,39 @@ function handleAddDevice(e) {
         return;
     }
     showLoading();
-    const userDevicesRef = db.ref('devices/' + currentUser.uid);
-    const newDeviceRef = userDevicesRef.push();
-    newDeviceRef.set({
-        sn,
-        name,
-        online: false,
-        type: 'other',
-        state: {}
-    })
-    .then(() => {
+
+    // ตรวจสอบ SN ว่ามีใน valid_sn หรือไม่
+    db.ref('valid_sn/' + sn).once('value', snapshot => {
+        if (!snapshot.exists()) {
+            hideLoading();
+            showError('SN นี้ไม่มีในระบบ กรุณาตรวจสอบ SN อุปกรณ์ของคุณ');
+            return;
+        }
+
+        // ถ้ามี SN ในระบบ ให้เพิ่มอุปกรณ์ให้ user
+        const userDevicesRef = db.ref('devices/' + currentUser.uid);
+        const newDeviceRef = userDevicesRef.push();
+        newDeviceRef.set({
+            sn,
+            name,
+            online: false,
+            type: snapshot.val().type || 'other',
+            state: {}
+        })
+        .then(() => {
+            hideLoading();
+            showSuccess('เพิ่มอุปกรณ์สำเร็จ');
+            document.getElementById('addDeviceForm').reset();
+            showDashboardPage('mainDashboardContent');
+            loadDevices();
+        })
+        .catch(() => {
+            hideLoading();
+            showError('เพิ่มอุปกรณ์ไม่สำเร็จ');
+        });
+    }, () => {
         hideLoading();
-        showSuccess('เพิ่มอุปกรณ์สำเร็จ');
-        document.getElementById('addDeviceForm').reset();
-        showDashboardPage('mainDashboardContent');
-        loadDevices();
-    })
-    .catch(() => {
-        hideLoading();
-        showError('เพิ่มอุปกรณ์ไม่สำเร็จ');
+        showError('เกิดข้อผิดพลาดในการตรวจสอบ SN');
     });
 }
 
